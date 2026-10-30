@@ -1,0 +1,214 @@
+### ========================================================
+### CanteenFlow REST API Test Suite (VS Code REST Client)
+### Base URL: http://localhost:5000/api
+### ========================================================
+
+@baseUrl = http://localhost:5000/api
+@adminEmail = admin@canteen.com
+@adminPassword = Admin@123
+@studentEmail = student1@college.edu
+@studentPassword = Student@123
+
+### 1. Health Check
+GET {{baseUrl}}/health HTTP/1.1
+
+### ========================================================
+### AUTHENTICATION
+### ========================================================
+
+### 2. Login as Admin
+# @name adminLogin
+POST {{baseUrl}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### Save Admin Token
+@adminToken = {{adminLogin.response.body.token}}
+
+### 3. Login as Student
+# @name studentLogin
+POST {{baseUrl}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "{{studentEmail}}",
+  "password": "{{studentPassword}}"
+}
+
+### Save Student Token
+@studentToken = {{studentLogin.response.body.token}}
+
+### 4. Register a New Student
+POST {{baseUrl}}/auth/register HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "Sameer Joshi",
+  "email": "sameer@college.edu",
+  "password": "Password@123",
+  "rollNumber": "EE-2024-055"
+}
+
+### 5. Get Current User Profile (Student)
+GET {{baseUrl}}/auth/me HTTP/1.1
+Authorization: Bearer {{studentToken}}
+
+### ========================================================
+### MENU ITEMS
+### ========================================================
+
+### 6. Get All Menu Items
+GET {{baseUrl}}/menu HTTP/1.1
+
+### 7. Filter Menu by Category (Lunch)
+GET {{baseUrl}}/menu?category=Lunch HTTP/1.1
+
+### 8. Search Menu Items
+GET {{baseUrl}}/menu?search=Biryani HTTP/1.1
+
+### 9. Create New Menu Item (Admin Only)
+# @name createMenuItem
+POST {{baseUrl}}/menu HTTP/1.1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Rajma Chawal Bowl",
+  "description": "Slow cooked kidney beans in aromatic gravy served over fragrant jeera basmati rice.",
+  "category": "Lunch",
+  "price": 70,
+  "isVeg": true,
+  "imageUrl": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=500",
+  "isAvailable": true,
+  "dailyLimit": 40
+}
+
+@newItemId = {{createMenuItem.response.body.data._id}}
+
+### 10. Update Menu Item (Admin Only)
+PUT {{baseUrl}}/menu/{{newItemId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "price": 75,
+  "dailyLimit": 50
+}
+
+### 11. Delete Menu Item (Admin Only)
+DELETE {{baseUrl}}/menu/{{newItemId}} HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### ========================================================
+### PICKUP TIME SLOTS
+### ========================================================
+
+### 12. Get Slots for Today (with booked count & capacity)
+GET {{baseUrl}}/slots HTTP/1.1
+
+### 13. Get Slots for Tomorrow
+GET {{baseUrl}}/slots?date=2026-10-22 HTTP/1.1
+
+### 14. Get All Slots (Admin Management)
+GET {{baseUrl}}/slots/admin HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### 15. Create Time Slot (Admin Only)
+POST {{baseUrl}}/slots HTTP/1.1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "label": "02:30 PM - 03:00 PM",
+  "startTime": "14:30",
+  "endTime": "15:00",
+  "capacity": 20,
+  "isActive": true
+}
+
+### ========================================================
+### ORDERS & FULFILLMENT
+### ========================================================
+
+### 16. Place an Order (Student)
+# Replace menuItem with a valid ID from GET /menu and slot with a valid slot ID from GET /slots
+POST {{baseUrl}}/orders HTTP/1.1
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "orderDate": "2026-10-22",
+  "slot": "6ad8702f63f9bf3060776c5b",
+  "items": [
+    {
+      "menuItem": "6ad8702f63f9bf3060776c47",
+      "quantity": 2
+    }
+  ]
+}
+
+### 17. Get My Orders (Student)
+GET {{baseUrl}}/orders/my HTTP/1.1
+Authorization: Bearer {{studentToken}}
+
+### 18. Admin: Get All Orders (Filter by Date & Status)
+GET {{baseUrl}}/orders?status=Placed HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### 19. Admin: Update Order Status (Placed -> Preparing -> Ready -> Collected)
+# Replace with an active Order ID
+PUT {{baseUrl}}/orders/6ad8703463f9bf3060776d13/status HTTP/1.1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "Preparing"
+}
+
+### ========================================================
+### DEMAND DASHBOARD & AI FORECAST (Admin Only)
+### ========================================================
+
+### 20. Dashboard Overview Summary
+GET {{baseUrl}}/dashboard/summary HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### 21. Demand by Item (Aggregation for Charts)
+GET {{baseUrl}}/dashboard/demand-by-item HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### 22. Demand by Time Slot (Capacity vs Booked)
+GET {{baseUrl}}/dashboard/demand-by-slot HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### 23. Tomorrow's Food Demand Forecast & Kitchen Preparation Guide
+GET {{baseUrl}}/dashboard/forecast HTTP/1.1
+Authorization: Bearer {{adminToken}}
+
+### ========================================================
+### FOOD WASTAGE AUDIT (Admin Only)
+### ========================================================
+
+### 24. Record End-of-Day Wastage
+POST {{baseUrl}}/wastage HTTP/1.1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "date": "2026-10-21",
+  "entries": [
+    {
+      "menuItem": "6ad8702f63f9bf3060776c47",
+      "prepared": 50,
+      "leftover": 4
+    }
+  ]
+}
+
+### 25. Get 7-Day Wastage Trend
+GET {{baseUrl}}/wastage?days=7 HTTP/1.1
+Authorization: Bearer {{adminToken}}
